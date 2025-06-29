@@ -1,7 +1,10 @@
-/bot3/controllers/turtlebot3_controller/logs
 bot3/2d-lidar-identification.code-workspace
 *.DS_Store
 /RESULT2
 /RESULT-1
 bot3/worlds/.bot3.jpg
 bot3/worlds/.bot3.wbproj
+raw_logs/
+Presentation/
+output/
+DOCS/
