@@ -8,3 +8,7 @@ raw_logs/
 Presentation/
 output/
 DOCS/
+training_outputs/120_DO_aligned_Fused/runs_yolo_120_aligned.zip
+training_outputs/120_DO_aligned_Fused/webots_model_assets_alignedfused_fulltrain_120.zip
+training_outputs/120_DO_simple_Fused/runs_yolo_120.zip
+training_outputs/120_DO_simple_Fused/webots_model_assets_simpel_fused_fulltrain_120.zip
