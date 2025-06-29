@@ -12,14 +12,14 @@ movement_mode = 1
 # Constants
 TIME_STEP = 64
 EPSILON = 0.25  # Distance discontinuity threshold
-BASE_SPEED = 2.0
+BASE_SPEED = 3.0  # Increased from 2.0 for faster movement
 CIRCLE_RADIUS = 1.2  # meters
-WAYPOINT_DISTANCE_THRESHOLD = 0.1  # meters
-TURN_GAIN = 1.0
+WAYPOINT_DISTANCE_THRESHOLD = 0.1  # meters (increased from 0.1 to 0.15 for more consistent stopping)
+TURN_GAIN = 2.5    # Increased from 1.0 for more responsive turning
 MERGE_WRAP_AROUND = False  # Whether to merge clusters that wrap around the scan
 
 # Navigation constants
-SAFETY_MARGIN = 0.35  # 20cm additional distance from box boundary
+SAFETY_MARGIN = 0.2  # 10cm safety margin from object boundary
 MIN_WAYPOINT_SPACING = 0.2  # Minimum distance between waypoints
 SCAN_DISTANCE = 0.0  # No need for additional scan distance since we're already calculating from center
 
@@ -28,9 +28,9 @@ ADAPTIVE_SPEED = False  # Set to True for speed adaptation, False for constant s
 RETURN_TO_START = True  # Whether to return to starting point after scanning all objects
 
 # Obstacle avoidance parameters
-OBSTACLE_THRESHOLD = 0.4  # Distance to start avoiding obstacles
+OBSTACLE_THRESHOLD = 0.1  # Distance to start avoiding obstacles
 AVOIDANCE_WEIGHT = 1.5    # Weight of obstacle avoidance vs goal-seeking
-MIN_FRONT_DIST = 0.3      # Minimum front clearance
+MIN_FRONT_DIST = 0.1      # Minimum front clearance (reduced from 0.3)
 
 # Define Object2D class
 class Object2D(NamedTuple):
@@ -40,25 +40,25 @@ class Object2D(NamedTuple):
     width: float  # width of object
     depth: float  # depth of object
     name: str  # identifier
+    rotation: float = 0.0  # rotation in radians (default 0)
+
+    def get_dimensions(self) -> Tuple[float, float]:
+        """Get the correct width and depth based on rotation."""
+        # If rotation is 90 or 270 degrees, swap dimensions
+        if abs(self.rotation % (2 * math.pi) - math.pi/2) < 0.1 or \
+           abs(self.rotation % (2 * math.pi) - 3 * math.pi/2) < 0.1:
+            return self.depth, self.width
+        return self.width, self.depth
 
 # Define known objects in the environment
 KNOWN_OBJECTS = [
-    Object2D(x=-0.88499, y=0.982418, width=0.4, depth=0.4, name="Box1"),
-    Object2D(x=0.747089, y=-1.05883, width=0.4, depth=0.4, name="Box2")
+    Object2D(x=1, y=1, width=0.4, depth=0.4, name="chair"),
+    Object2D(x=-1, y=1, width=0.4, depth=0.6, name="box"),
+    Object2D(x=0.7, y=-0.9, width=0.8, depth=1.6, name="desk", rotation=math.pi/2)  # 90 degrees rotation
 ]
 
 def gaussian(x, mu, sigma):
     return (1.0 / (sigma * math.sqrt(2.0 * math.pi))) * math.exp(-((x - mu) * (x - mu)) / (2 * sigma * sigma))
-
-def create_circular_waypoints(center_x: float, center_y: float, radius: float, num_points: int = 8, object_name: str = None) -> List[List[float]]:
-    """Create waypoints in a circle around the center point."""
-    waypoints = []
-    for i in range(num_points):
-        angle = (2 * math.pi * i) / num_points
-        x = center_x + radius * math.cos(angle)
-        y = center_y + radius * math.sin(angle)
-        waypoints.append([x, y, object_name])
-    return waypoints
 
 def polar_to_cartesian(r, theta):
     """Convert polar coordinates to Cartesian coordinates."""
@@ -507,53 +507,6 @@ def log_lidar_data(timestamp: float, raw_scan: List[float], angles: List[float],
         json.dump(log_entry, f)
         f.write('\n')
 
-def generate_box_perimeter(obj: Object2D, num_points: int = 8) -> List[List[float]]:
-    """Generate waypoints around a rectangular object."""
-    # Calculate box dimensions with safety margin
-    half_width = (obj.width / 2) + SAFETY_MARGIN + SCAN_DISTANCE
-    half_depth = (obj.depth / 2) + SAFETY_MARGIN + SCAN_DISTANCE
-    
-    # Generate corner points
-    corners = [
-        [obj.x + half_width, obj.y + half_depth],   # Top-right
-        [obj.x - half_width, obj.y + half_depth],   # Top-left
-        [obj.x - half_width, obj.y - half_depth],   # Bottom-left
-        [obj.x + half_width, obj.y - half_depth]    # Bottom-right
-    ]
-    
-    waypoints = []
-    # Interpolate points between corners
-    points_per_side = max(2, num_points // 4)
-    
-    for i in range(4):
-        start = corners[i]
-        end = corners[(i + 1) % 4]
-        
-        # Generate points along this side
-        for t in range(points_per_side):
-            alpha = t / points_per_side
-            point = [
-                start[0] + (end[0] - start[0]) * alpha,
-                start[1] + (end[1] - start[1]) * alpha
-            ]
-            waypoints.append(point)
-    
-    return waypoints
-
-def generate_circular_perimeter(obj: Object2D, num_points: int = 16) -> List[List[float]]:
-    """Generate waypoints in a circle around an object."""
-    # Use the larger dimension plus safety margin as radius
-    radius = max(obj.width, obj.depth) / 2 + SAFETY_MARGIN + SCAN_DISTANCE
-    
-    waypoints = []
-    for i in range(num_points):
-        angle = (2 * math.pi * i) / num_points
-        x = obj.x + radius * math.cos(angle)
-        y = obj.y + radius * math.sin(angle)
-        waypoints.append([x, y])
-    
-    return waypoints
-
 def optimize_waypoints(waypoints: List[List[float]]) -> List[List[float]]:
     """Optimize waypoint sequence and ensure minimum spacing."""
     if not waypoints:
@@ -700,7 +653,7 @@ class TurtleBot3Controller:
 
     def update_object_states(self, clusters: List[Dict]):
         """Update the state of known objects based on current scan."""
-        total_waypoints_per_object = 9  # 8 circle points + 1 return point
+        total_waypoints_per_object = 13  # 12 rectangular path points + 1 return point
         total_objects = len(self.object_states)
         total_object_waypoints = total_objects * total_waypoints_per_object
         
@@ -738,6 +691,22 @@ class TurtleBot3Controller:
             print("All objects scanned! Returning to start position...")
             self.completion_message_shown = True
 
+    def _get_speed_threshold(self, obj: Object2D) -> float:
+        """Calculate speed reduction threshold based on object size."""
+        # Get the smaller dimension of the object
+        width, depth = obj.get_dimensions()
+        min_dimension = min(width, depth)
+        
+        # For small objects (like chair: 0.4m), use smaller threshold
+        if min_dimension <= 0.4:
+            return 0.15  # 15cm threshold for small objects
+        # For medium objects (like box: 0.6m), use medium threshold
+        elif min_dimension <= 0.8:
+            return 0.2   # 20cm threshold for medium objects
+        # For large objects (like desk: 1.6m), use larger threshold
+        else:
+            return 0.3   # 30cm threshold for large objects
+
     def move_to_waypoint(self):
         """Enhanced waypoint navigation with object state tracking."""
         # If mission is complete, stay stopped
@@ -768,7 +737,7 @@ class TurtleBot3Controller:
         # Check if we've reached the waypoint
         if distance < WAYPOINT_DISTANCE_THRESHOLD:
             # Calculate current object index and waypoint number
-            total_waypoints_per_object = 9  # 8 circle points + 1 return point
+            total_waypoints_per_object = 13  # 12 rectangular path points + 1 return point
             total_objects = len(self.object_states)
             total_object_waypoints = total_objects * total_waypoints_per_object
             
@@ -781,22 +750,15 @@ class TurtleBot3Controller:
                     dy_to_start = self.pose[1] - self.start_position[1]
                     distance_to_start = math.sqrt(dx_to_start*dx_to_start + dy_to_start*dy_to_start)
                     
-                    if distance_to_start < 0.1:  # 10cm tolerance for final position
+                    if distance_to_start < WAYPOINT_DISTANCE_THRESHOLD:
                         print("Mission complete! All objects scanned and returned to start position.")
                         print(f"Final position: ({self.pose[0]:.3f}, {self.pose[1]:.3f})")
                         self.left_motor.setVelocity(0)
                         self.right_motor.setVelocity(0)
-                        self.mission_complete = True  # Set mission complete flag
+                        self.mission_complete = True
                         return
                     else:
                         print(f"Approaching start position... Current distance: {distance_to_start:.3f}m")
-                        # If we're very close but not quite there, just stop
-                        if distance_to_start < 0.2:  # 20cm threshold for stopping
-                            print("Close enough to start position, mission complete!")
-                            self.left_motor.setVelocity(0)
-                            self.right_motor.setVelocity(0)
-                            self.mission_complete = True
-                            return
                 else:
                     print("Returning to start position...")
             else:
@@ -810,7 +772,7 @@ class TurtleBot3Controller:
                     # If this is the first waypoint of a new object
                     if waypoint_in_circle == 1:
                         print(f"\nStarting exploration around {current_obj.obj.name} at ({current_obj.obj.x:.2f}, {current_obj.obj.y:.2f})")
-                        print(f"Total waypoints for this object: {total_waypoints_per_object} (8 circle points + 1 return point)")
+                        print(f"Total waypoints for this object: {total_waypoints_per_object} (12 rectangular path points + 1 return point)")
                     
                     # Log each waypoint reached with correct numbering
                     print(f"Reached waypoint {waypoint_in_circle}/{total_waypoints_per_object} for object {current_obj.obj.name}")
@@ -833,17 +795,34 @@ class TurtleBot3Controller:
         else:
             base_speed = BASE_SPEED
         
+        # Get the current object being scanned
+        current_obj = next((obj for obj in self.object_states if obj.obj.name == waypoint_owner), None)
+        
         # Progressive speed reduction when approaching waypoint
-        if distance < 0.3:  # Start slowing down at 30cm
-            # Gradually reduce speed as we get closer
-            # At 30cm: full speed, at 0cm: 20% speed
-            speed_factor = max(0.2, distance / 0.3)
-            base_speed *= speed_factor
-            
+        if current_obj:
+            speed_threshold = self._get_speed_threshold(current_obj.obj)
+            if distance < speed_threshold:
+                # Gradually reduce speed as we get closer
+                # At threshold: full speed, at 0cm: 50% speed
+                speed_factor = max(0.5, distance / speed_threshold)
+                base_speed *= speed_factor
+        else:
+            # Default behavior for return/start waypoints
+            if distance < 0.3:
+                speed_factor = max(0.5, distance / 0.3)
+                base_speed *= speed_factor
+        
+        # Calculate angular error
+        angular_error = target_angle - self.pose[2]
+        while angular_error > math.pi:
+            angular_error -= 2 * math.pi
+        while angular_error < -math.pi:
+            angular_error += 2 * math.pi
+        
         # Adjust speed based on angle error
         if abs(angular_error) > math.pi/4:  # If we need to turn more than 45 degrees
             base_speed *= 0.5  # Slow down for sharp turns
-            
+        
         left_speed = base_speed - TURN_GAIN * angular_error
         right_speed = base_speed + TURN_GAIN * angular_error
         
@@ -944,17 +923,54 @@ class TurtleBot3Controller:
         return left_speed, right_speed
 
     def generate_object_exploration_waypoints(self, obj: Object2D) -> List[List[float]]:
-        """Generate waypoints in a circle around the object."""
-        # Calculate radius: half of box size + safety margin
-        radius = (max(obj.width, obj.depth) / 2) + SAFETY_MARGIN
+        """Generate waypoints in a rectangular path around the object."""
+        # Use original dimensions for waypoint generation
+        half_width = (obj.width / 2) + SAFETY_MARGIN
+        half_depth = (obj.depth / 2) + SAFETY_MARGIN
         
-        # Generate all points in a circle
-        circle_points = create_circular_waypoints(obj.x, obj.y, radius, 8, obj.name)
+        # Generate corner points
+        corners = [
+            [obj.x + half_width, obj.y + half_depth],   # Top-right
+            [obj.x - half_width, obj.y + half_depth],   # Top-left
+            [obj.x - half_width, obj.y - half_depth],   # Bottom-left
+            [obj.x + half_width, obj.y - half_depth]    # Bottom-right
+        ]
+        
+        # If object is rotated, rotate the corners
+        if obj.rotation != 0:
+            rotated_corners = []
+            for corner in corners:
+                # Translate to origin
+                dx = corner[0] - obj.x
+                dy = corner[1] - obj.y
+                # Rotate
+                rx = dx * math.cos(obj.rotation) - dy * math.sin(obj.rotation)
+                ry = dx * math.sin(obj.rotation) + dy * math.cos(obj.rotation)
+                # Translate back
+                rotated_corners.append([obj.x + rx, obj.y + ry])
+            corners = rotated_corners
+        
+        waypoints = []
+        # Interpolate points between corners
+        points_per_side = 2  # Number of points per side (excluding corners)
+        
+        for i in range(4):
+            start = corners[i]
+            end = corners[(i + 1) % 4]
+            
+            # Generate points along this side
+            for t in range(points_per_side + 1):
+                alpha = t / (points_per_side + 1)
+                point = [
+                    start[0] + (end[0] - start[0]) * alpha,
+                    start[1] + (end[1] - start[1]) * alpha
+                ]
+                waypoints.append([point[0], point[1], obj.name])
         
         # Find the closest waypoint to robot's current position
         min_dist = float('inf')
         closest_index = 0
-        for i, point in enumerate(circle_points):
+        for i, point in enumerate(waypoints):
             dx = point[0] - self.pose[0]
             dy = point[1] - self.pose[1]
             dist = math.sqrt(dx*dx + dy*dy)
@@ -963,9 +979,9 @@ class TurtleBot3Controller:
                 closest_index = i
         
         # Reorder waypoints to start from closest point
-        waypoints = circle_points[closest_index:] + circle_points[:closest_index]
+        waypoints = waypoints[closest_index:] + waypoints[:closest_index]
         
-        # Add the first point again to complete the circle
+        # Add the first point again to complete the path
         waypoints.append([waypoints[0][0], waypoints[0][1], obj.name])
         
         return waypoints
@@ -1017,6 +1033,55 @@ class TurtleBot3Controller:
             min_dist = min(min_dist, distance)
         return min_dist
 
+    def debug_robot_movement(self):
+        """Temporary debug function to monitor robot movement and waypoint issues."""
+        # Get current waypoint
+        current_waypoint = self.waypoints[self.current_waypoint_index]
+        target_x, target_y, waypoint_owner = current_waypoint
+        
+        # Calculate distances and angles
+        dx = target_x - self.pose[0]
+        dy = target_y - self.pose[1]
+        distance = math.sqrt(dx*dx + dy*dy)
+        target_angle = math.atan2(dy, dx)
+        
+        # Get LiDAR scan for obstacle detection
+        scan = self.lidar.getRangeImage()
+        clusters = segment_lidar_fagundes(scan, self.angles)
+        
+        # Debug information
+        print("\n=== Robot Movement Debug ===")
+        print(f"Current Position: ({self.pose[0]:.3f}, {self.pose[1]:.3f}, {math.degrees(self.pose[2]):.1f}°)")
+        print(f"Target Waypoint: ({target_x:.3f}, {target_y:.3f}) - {waypoint_owner}")
+        print(f"Distance to Target: {distance:.3f}m")
+        print(f"Angle to Target: {math.degrees(target_angle):.1f}°")
+        print(f"Current Waypoint Index: {self.current_waypoint_index}/{len(self.waypoints)}")
+        
+        # Check for obstacles
+        min_obstacle_dist = self._get_min_obstacle_distance(clusters)
+        print(f"Minimum Obstacle Distance: {min_obstacle_dist:.3f}m")
+        
+        # Check motor speeds
+        left_speed = self.left_motor.getVelocity()
+        right_speed = self.right_motor.getVelocity()
+        print(f"Motor Speeds - Left: {left_speed:.2f}, Right: {right_speed:.2f}")
+        
+        # Check if robot is stuck
+        if distance < WAYPOINT_DISTANCE_THRESHOLD:
+            print("✓ Reached waypoint threshold")
+        elif abs(left_speed) < 0.1 and abs(right_speed) < 0.1:
+            print("⚠ Warning: Motors are stopped but not at waypoint")
+        elif min_obstacle_dist < MIN_FRONT_DIST:
+            print("⚠ Warning: Too close to obstacle")
+        
+        # Check object scanning status
+        if waypoint_owner != "return" and waypoint_owner != "start":
+            current_obj = next((obj for obj in self.object_states if obj.obj.name == waypoint_owner), None)
+            if current_obj:
+                print(f"Object {waypoint_owner} scanning status: {'Scanned' if current_obj.scanned else 'Not scanned'}")
+        
+        print("========================\n")
+
     def run(self):
         while self.robot.step(self.timestep) != -1:
             # Get current time
@@ -1030,6 +1095,9 @@ class TurtleBot3Controller:
             
             # Log data
             log_lidar_data(timestamp, scan, self.angles, clusters, self.pose, self.log_file)
+            
+            # Call debug function
+            self.debug_robot_movement()
             
             # Choose movement mode
             if movement_mode == 0:
