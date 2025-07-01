@@ -14,6 +14,14 @@ The main goal of this project is to develop a robust object identification syste
 - **Comprehensive visualization**: Tools for visualizing detections and training data
 - **Webots simulation**: Full simulation environment with TurtleBot3
 
+## 🎬 Demo Video
+
+Watch the full simulation in action:
+
+[![2D LiDAR Object Identification Demo](https://img.youtube.com/vi/sjO1z04g8Jg/0.jpg)](https://www.youtube.com/watch?v=sjO1z04g8Jg)
+
+**[Full Simulation Video](https://www.youtube.com/watch?v=sjO1z04g8Jg)** - See the complete system in action with real-time object detection and multi-frame LiDAR fusion.
+
 ## 📁 Project Structure
 
 ```
