@@ -24,7 +24,9 @@ Watch the full simulation in action:
 
 ### Training Example
 
-**[Training Process Video](training.mp4)** - Watch the data generation process with 3 main scenarios and 5 random predefined robot positions, demonstrating how training data is collected for the RGB encoding approach.
+![Training Process](training.gif)
+
+**[Full Training Video](training.mp4)** – Watch the data generation process with 3 main scenarios and 5 random predefined robot positions, demonstrating how training data is collected for the RGB encoding approach.
 
 ## 🏆 Performance Results
 
@@ -275,12 +277,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **TurtleBot3**: Robot platform
 - **Ultralytics**: YOLO implementation
 
-## 📞 Support
+## 📞 Support & Resources
 
-For questions and support:
-- Check the `Presentation/` folder for detailed documentation
-- Review the code comments for implementation details
-- Open an issue for bugs or feature requests
+- For presentations, documentation, and training demos, see the [`resource/`](resource/) folder.
+- For technical details, code explanations, and implementation notes, review the code comments and the [`README.md`](README.md).
+- For additional resources, training curves, and result images, check the [`training_outputs/`](training_outputs/) and [`output/`](output/) folders.
+- If you have questions, bug reports, or feature requests, please [open an issue](https://github.com/soheilbh/2d-lidar-identification/issues) on GitHub.
 
 ---
 
