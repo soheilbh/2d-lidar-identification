@@ -12,3 +12,9 @@ training_outputs/120_DO_aligned_Fused/runs_yolo_120_aligned.zip
 training_outputs/120_DO_aligned_Fused/webots_model_assets_alignedfused_fulltrain_120.zip
 training_outputs/120_DO_simple_Fused/runs_yolo_120.zip
 training_outputs/120_DO_simple_Fused/webots_model_assets_simpel_fused_fulltrain_120.zip
+bot3/utils/__pycache__/
+bot3/controllers/__pycache__/global_config.cpython-313.pyc
+bot3/utils/__pycache__/lidar_utils.cpython-313.pyc
+bot3/controllers/__pycache__/global_config.cpython-313.pyc
+bot3/controllers/__pycache__/global_config.cpython-313.pyc
+bot3/utils/__pycache__/lidar_utils.cpython-313.pyc
