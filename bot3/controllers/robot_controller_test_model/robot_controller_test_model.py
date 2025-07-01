@@ -518,8 +518,10 @@ class WaypointNavigator:
         return [
             Waypoint(1, 0, 0.1),
             Waypoint(0, 1, 0.1),
+            Waypoint(-1, 0, 0.1),
+            Waypoint(-2.5, 0, 0.1),
+            Waypoint(-1, 0, 0.1),
             Waypoint(-1.0, -1.0, 0.1),
-            # Waypoint(1.0, -1.0, 0.1),
             Waypoint(0.0, 0.0, 0.1),  # Return to start
         ]
     
