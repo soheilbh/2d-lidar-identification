@@ -23,8 +23,8 @@ sys.path.append(project_root)
 from bot3.utils.lidar_utils import KNOWN_OBJECTS
 
 # --- Configuration Parameters ---
-NUM_SCENARIOS = 2  # Number of scenarios to generate
-NUM_ROBOT_POSITION = 50  # Number of robot positions per scenario
+NUM_SCENARIOS = 160  # Number of scenarios to generate
+NUM_ROBOT_POSITION = 90  # Number of robot positions per scenario
 NUM_WAYPOINTS_PER_POSITION = 2  # Number of waypoints to generate for each robot position
 ROBOT_POSITION_CLEARANCE = 0.05   # Minimum clearance for robot positions (meters)
 SHOW_MAIN_VISUALIZATION = False # Set to True to show and save the main visualization with all scenarios
