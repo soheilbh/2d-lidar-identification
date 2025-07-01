@@ -108,22 +108,182 @@ Our innovative approach encodes consecutive LiDAR scans as compact RGB images:
 └── requirements.txt               # Python dependencies
 ```
 
-## 📊 Example Results
+### 📝 Note on Extra Scripts
+The `scripts/Extra scripts/` folder contains additional utility scripts that may require path adjustments:
+- **Usage**: Move scripts to the main `scripts/` folder for correct path resolution
+- **Alternative**: Modify input/output paths in the scripts to match your directory structure
+- **Purpose**: These scripts provide additional analysis, testing, and processing capabilities
 
-**Confusion Matrix**
+## 🤖 Main Controllers
 
-Confusion matrix for all classes on the test set.
+### 1. `full_train_multi_scenario_position_controller.py`
+**Purpose**: Primary data generation controller for creating training datasets
+- **Functionality**:
+  - Executes predefined scenarios with different object configurations
+  - Collects raw LiDAR data with object annotations
+  - Generates comprehensive training datasets
+  - Supports multiple robot positions and waypoints
+- **Output**: Raw LiDAR logs in JSONL format
+- **Usage**: Main controller for dataset generation
 
-![Confusion Matrix](training_outputs/120_DO_simple_Fused/detect/val/confusion_matrix.png)
+### 2. `robot_controller_test_model.py`
+**Purpose**: Model testing and real-time inference controller
+- **Functionality**:
+  - Loads trained YOLOv8 models
+  - Performs real-time object detection
+  - Provides live visualization of detections
+  - Supports keyboard-controlled robot movement
+- **Features**:
+  - Live RGB LiDAR visualization
+  - Real-time YOLO inference
+  - World coordinate conversion
+  - Performance metrics display
 
-**Recall Curve**
+## 🔧 Core Scripts
 
-Recall curve showing model sensitivity across thresholds.
+### Data Generation Scripts
+- **`multi_frame_scenarios_simple_fused_rgb_generator.py`**: Creates RGB images from simple fused LiDAR data (3-frame concatenation)
+- **`multi_frame_scenarios_aligned_fused_rgb_generator.py`**: Creates RGB images from aligned fused LiDAR data (5-frame pose-based fusion)
+- **`multi_frame_scenarios_simple_fused_label_generator.py`**: Generates YOLO labels for simple fused data
+- **`multi_frame_scenarios_aligned_fused_label_generator.py`**: Generates YOLO labels for aligned fused data
 
-![Recall Curve](training_outputs/120_DO_simple_Fused/detect/val/R_curve.png)
+### Processing Scripts
+- **`post_process.py`**: Post-processes LiDAR data for object detection
+- **`split_dataset.py`**: Splits datasets into training/validation sets
+- **`inference.py`**: Standalone inference script for model testing
 
-**F1 Curve**
+### Visualization Scripts
+- **`visualize_labels_simple_fused.py`**: Visualizes simple fused data with bounding boxes
+- **`visualize_labels_aligned_fused.py`**: Visualizes aligned fused data with bounding boxes
 
-F1 curve for overall detection performance.
+## 🚀 Quick Start
 
-![F1 Curve](training_outputs/120_DO_simple_Fused/detect/val/F1_curve.png)
+### Prerequisites
+```bash
+pip install -r requirements.txt
+```
+
+### 1. Data Generation
+```bash
+# Run the main data generation controller in Webots
+# This will generate raw LiDAR logs in raw_logs/
+```
+
+### 2. Data Processing
+```bash
+# Generate multi-frame fused data
+python scripts/multi_frame_scenarios_simple_fused_rgb_generator.py
+python scripts/multi_frame_scenarios_simple_fused_label_generator.py
+
+# Or for aligned fusion
+python scripts/multi_frame_scenarios_aligned_fused_rgb_generator.py
+python scripts/multi_frame_scenarios_aligned_fused_label_generator.py
+```
+
+### 3. Model Training
+```bash
+# Train YOLOv8 model on processed data
+yolo train model=yolov8n.pt data=path/to/data.yaml epochs=120
+```
+
+### 4. Model Testing
+```bash
+# Test model in Webots simulation
+# Use robot_controller_test_model.py for real-time inference
+```
+
+## 📊 Data Formats
+
+### Raw LiDAR Data
+- **Format**: JSONL (JSON Lines)
+- **Content**: Frame ID, raw scan, robot pose, object details, scenario information
+- **Location**: `raw_logs/`
+
+### Processed Data
+- **RGB Images**: 64x384 PNG files (3-channel fused LiDAR data)
+- **Labels**: YOLO format text files
+- **Location**: `output/multi_frame/multi_scenarios/`
+
+### Model Outputs
+- **Trained Models**: YOLOv8 weights and ONNX/TorchScript exports
+- **Training Results**: Metrics, confusion matrices, validation plots
+- **Location**: `training_outputs/`
+
+## 🎮 Usage Examples
+
+### Generate Training Data
+1. Open Webots and load `bot3/worlds/bot3.wbt`
+2. Run `full_train_multi_scenario_position_controller.py`
+3. Wait for all scenarios to complete
+4. Check `raw_logs/` for generated data
+
+### Test Trained Model
+1. Ensure trained model is in `training_outputs/`
+2. Open Webots and load the world
+3. Run `robot_controller_test_model.py`
+4. Use keyboard controls to move robot and observe detections
+
+### Visualize Results
+```bash
+# Visualize simple fused data
+python scripts/visualize_labels_simple_fused.py
+
+# Visualize aligned fused data
+python scripts/visualize_labels_aligned_fused.py
+```
+
+## 🔧 Configuration
+
+### Global Configuration (`bot3/controllers/global_config.py`)
+- **Movement parameters**: Speed, turning gains, waypoint thresholds
+- **Safety settings**: Obstacle avoidance, safety margins
+- **Simulation settings**: Time steps, scan distances
+
+### Model Configuration
+- **Model path**: Update in `robot_controller_test_model.py`
+- **Inference settings**: Confidence thresholds, NMS parameters
+- **Buffer settings**: Frame buffer size for multi-frame fusion
+
+## 📈 Performance
+
+### Model Performance
+- **Inference speed**: ~6-48ms per frame (depending on hardware)
+- **Accuracy**: 98.4% mAP@0.5 on test set
+- **Memory usage**: ~100-200MB for model and buffers
+- **Real-time capability**: 21 FPS on Raspberry Pi 5
+
+### Data Generation
+- **Scenarios per run**: 160 unique scenarios
+- **Positions per scenario**: 90 random robot positions
+- **Total samples**: 768,897 labeled RGB tensors
+- **Training time**: ~18 hours on H100 GPU
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly with Webots simulation
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- **Webots**: Robot simulation environment
+- **YOLOv8**: Object detection framework
+- **TurtleBot3**: Robot platform
+- **Ultralytics**: YOLO implementation
+
+## 📞 Support & Resources
+
+- For presentations, documentation, and training demos, see the [`resource/`](resource/) folder.
+- For technical details, code explanations, and implementation notes, review the code comments and the [`README.md`](README.md).
+- For additional resources, training curves, and result images, check the [`training_outputs/`](training_outputs/) and [`output/`](output/) folders.
+- If you have questions, bug reports, or feature requests, please [open an issue](https://github.com/soheilbh/2d-lidar-identification/issues) on GitHub.
+
+---
+
+**Note**: This project requires Webots simulation environment and proper Python dependencies. Ensure all paths are correctly configured for your system setup.
