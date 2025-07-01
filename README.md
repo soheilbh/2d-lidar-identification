@@ -196,10 +196,43 @@ python scripts/multi_frame_scenarios_aligned_fused_label_generator.py
 ```
 
 ### 3. Model Training
-```bash
-# Train YOLOv8 model on processed data
-yolo train model=yolov8n.pt data=path/to/data.yaml epochs=120
+
+```python
+model = YOLO('yolov8n.pt')
+
+results = model.train(
+    data=str(yaml_file_path),
+    epochs=120,
+    batch=1024,         # Safe value for 40 GB VRAM
+    imgsz=384,
+    workers=10,         # Balanced for 30+ CPU cores
+    rect=True,          # All images are same size (64x384)
+    cache='ram',        # Leverage 200 GB RAM for faster training
+    seed=42,
+    save=True,
+    save_period=10,
+
+    # ✅ Safe augmentations
+    flipud=0.2,
+    hsv_h=0.0,
+    hsv_s=0.0,
+    hsv_v=0.0,
+
+    # ❌ Disable risky augmentations
+    mosaic=0.0,         # Disable mosaic
+    mixup=0.0,          # Disable mixup
+    copy_paste=0.0,     # Disable copy-paste
+    cutmix=0.0,         # Disable cutmix
+    auto_augment=None,  # Disable auto augment policies
+    augment=False,      # Disable general heavy augmentation
+    erasing=0.0,        # Disable random erasing
+
+    verbose=True
+)
 ```
+
+- The full training code and experiment notebooks are available in [`training_outputs/Training_testing_Notebooks/`](training_outputs/Training_testing_Notebooks/).
+- Raspberry Pi 5 and 3 test results can also be found in this folder.
 
 ### 4. Model Testing
 ```bash
