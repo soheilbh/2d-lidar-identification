@@ -55,6 +55,20 @@ Our deep learning approach achieves state-of-the-art performance on 2D LiDAR obj
 - **MacBook Air M2**: 6.2ms per frame (~161 FPS)
 - **Raspberry Pi 3**: ~2 seconds per frame (TorchScript mode)
 
+<div align="center">
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/confusion_matrix.png" alt="Confusion Matrix" width="250"/>
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/R_curve.png" alt="Recall Curve" width="250"/>
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/F1_curve.png" alt="F1 Curve" width="250"/>
+</div>
+
+<p align="center">
+  <sub>
+    <b>Left:</b> Confusion matrix for all classes on the test set. 
+    <b>Center:</b> Recall curve showing model sensitivity across thresholds. 
+    <b>Right:</b> F1 curve for overall detection performance.
+  </sub>
+</p>
+
 ### **Methodology: RGB Encoding of LiDAR Scans**
 
 Our innovative approach encodes consecutive LiDAR scans as compact RGB images:
@@ -281,7 +295,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - For presentations, documentation, and training demos, see the [`resource/`](resource/) folder.
 - For technical details, code explanations, and implementation notes, review the code comments and the [`README.md`](README.md).
-- For additional resources, training curves, and result images, check the [`training_outputs/`](training_outputs/) and [`output/`](output/) folders.
+- For additional resources, training curves, and result images, check the [`training_outputs/`](training_outputs/) folders.
 - If you have questions, bug reports, or feature requests, please [open an issue](https://github.com/soheilbh/2d-lidar-identification/issues) on GitHub.
 
 ---
