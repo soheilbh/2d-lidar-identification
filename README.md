@@ -22,6 +22,63 @@ Watch the full simulation in action:
 
 **[Full Simulation Video](https://www.youtube.com/watch?v=sjO1z04g8Jg)** - See the complete system in action with real-time object detection and multi-frame LiDAR fusion.
 
+### Training Example
+
+**[Training Process Video](training.mp4)** - Watch the data generation process with 3 main scenarios and 5 random predefined robot positions, demonstrating how training data is collected for the RGB encoding approach.
+
+## 🏆 Performance Results
+
+### Method B: Deep Learning Approach (RGB Encoding)
+
+Our deep learning approach achieves state-of-the-art performance on 2D LiDAR object detection:
+
+#### **Overall Performance Metrics:**
+- **Mean Average Precision (mAP@0.5)**: 0.984 (98.4%)
+- **Mean Average Precision (mAP@0.5:0.95)**: 0.778 (77.8%)
+- **Overall Precision**: 94.9%
+- **Overall Recall**: 94.7%
+- **F1-Score**: 0.95
+
+#### **Per-Class Performance:**
+
+| Class | Precision | Recall | mAP@0.5 | mAP@0.5:0.95 |
+|-------|-----------|--------|---------|--------------|
+| Chair | 98.6% | 91.3% | 98.1% | 74.6% |
+| Box | 95.7% | 99.6% | 99.3% | 78.0% |
+| Desk | 92.2% | 95.4% | 98.2% | 82.2% |
+| Doorframe | 93.0% | 92.6% | 98.0% | 76.3% |
+
+#### **Real-time Performance:**
+- **Raspberry Pi 5**: 47.8ms per frame (~21 FPS)
+- **MacBook Air M2**: 6.2ms per frame (~161 FPS)
+- **Raspberry Pi 3**: ~2 seconds per frame (TorchScript mode)
+
+### **Methodology: RGB Encoding of LiDAR Scans**
+
+Our innovative approach encodes consecutive LiDAR scans as compact RGB images:
+
+#### **Data Representation:**
+- **Input Format**: 64×384×3 RGB tensor
+- **Temporal Encoding**: 3 consecutive LiDAR frames stacked as R, G, B channels
+- **Frame Buffer**: Simple FIFO mechanism without pose alignment
+- **Spatial Resolution**: 64 distance bins × 360 angular bins (padded to 384)
+
+#### **Training Strategy:**
+- **Dataset Size**: 768,897 labeled RGB tensor inputs
+- **Training Samples**: 629,591
+- **Validation Samples**: 72,528
+- **Test Samples**: 38,321 (completely unseen scenarios)
+- **Training Duration**: 120 epochs
+- **Hardware**: NVIDIA H100 GPU (80GB VRAM)
+- **Batch Size**: 1024
+
+#### **Key Innovations:**
+- **94% reduction** in input size compared to occupancy grid approaches
+- **Direct LiDAR encoding** without intermediate representations
+- **Temporal motion capture** through RGB channel stacking
+- **Privacy-preserving** camera-free perception
+- **Real-time embedded deployment** on low-power hardware
+
 ## 📁 Project Structure
 
 ```
@@ -188,14 +245,16 @@ python scripts/visualize_labels_aligned_fused.py
 ## 📈 Performance
 
 ### Model Performance
-- **Inference speed**: ~10-50ms per frame (depending on hardware)
-- **Accuracy**: Varies by object class and fusion method
+- **Inference speed**: ~6-48ms per frame (depending on hardware)
+- **Accuracy**: 98.4% mAP@0.5 on test set
 - **Memory usage**: ~100-200MB for model and buffers
+- **Real-time capability**: 21 FPS on Raspberry Pi 5
 
 ### Data Generation
-- **Scenarios per run**: Configurable (typically 10-50)
-- **Frames per scenario**: Variable based on waypoints
-- **Total data size**: ~1-10GB per complete run
+- **Scenarios per run**: 160 unique scenarios
+- **Positions per scenario**: 90 random robot positions
+- **Total samples**: 768,897 labeled RGB tensors
+- **Training time**: ~18 hours on H100 GPU
 
 ## 🤝 Contributing
 
