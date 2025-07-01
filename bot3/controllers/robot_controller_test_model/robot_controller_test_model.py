@@ -2,9 +2,10 @@
 
 import sys
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 from dataclasses import dataclass
 from collections import deque
+import enum
 
 # Add the controllers directory to the path so we can import global_config
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
@@ -22,11 +23,34 @@ try:
     from global_config import (
         TIME_STEP, BASE_SPEED, TURN_GAIN
     )
+    # Override with maximum speed values for waypoint navigation
+    BASE_SPEED = 6.67  # Override to maximum TurtleBot3 speed
+    TURN_GAIN = 0.5   # Override for better control
+    print("✅ Using global_config with speed overrides for maximum waypoint performance")
 except ImportError:
     print("Warning: Could not import global_config, using default values")
     TIME_STEP = 64
-    BASE_SPEED = 2.5
+    BASE_SPEED = 6.67  # Set to exact TurtleBot3 maximum for absolute fastest speed
     TURN_GAIN = 0.5  # Reduced from 2.5 to 0.5 for slower turning
+
+# Keyboard mode parameters (half speed for better control)
+KEYBOARD_SPEED = BASE_SPEED * 0.4  # Half speed for keyboard mode
+KEYBOARD_TURN_GAIN = TURN_GAIN * 0.4  # Half turn gain for keyboard mode
+
+
+class MovementMode(enum.Enum):
+    """Enumeration for different movement modes."""
+    KEYBOARD = "keyboard"
+    WAYPOINT = "waypoint"
+
+
+@dataclass
+class Waypoint:
+    """Data class to hold waypoint information."""
+    x: float
+    y: float
+    tolerance: float = 0.1  # Distance tolerance to consider waypoint reached
+    reached: bool = False
 
 
 @dataclass
@@ -36,6 +60,8 @@ class RobotState:
     current_rotation: float = 0.0
     is_running: bool = True
     pose: list = None
+    movement_mode: MovementMode = MovementMode.KEYBOARD
+    current_waypoint_index: int = 0
     
     def __post_init__(self):
         if self.pose is None:
@@ -194,7 +220,7 @@ class SimpleVisualizer:
         # Initialize RGB buffer
         self.rgb_buffer = RGBBuffer(buffer_size=3)
     
-    def update(self, robot_pose, lidar_scan, angles, title='Robot Position'):
+    def update(self, robot_pose, lidar_scan, angles, waypoint_navigator=None, movement_mode=None, title='Robot Position'):
         """Update visualization with robot position and heading."""
         # Clear all subplots
         self.ax1.clear()
@@ -223,6 +249,42 @@ class SimpleVisualizer:
         # Bottom wall (y = -2.0) - horizontal line from x=-2 to x=2
         self.ax1.plot([-2.0, 2.0], [-2.0, -2.0], color=wall_color, alpha=wall_alpha, linewidth=2)
         
+        # Draw waypoints if available
+        if waypoint_navigator and waypoint_navigator.waypoints:
+            waypoints = waypoint_navigator.waypoints
+            current_index = waypoint_navigator.current_waypoint_index
+            
+            # Draw all waypoints
+            for i, wp in enumerate(waypoints):
+                if i < current_index:
+                    # Reached waypoints - green
+                    color = 'green'
+                    marker = 'o'
+                    alpha = 0.6
+                elif i == current_index and waypoint_navigator.navigation_active:
+                    # Current waypoint - red
+                    color = 'red'
+                    marker = 's'
+                    alpha = 0.8
+                else:
+                    # Future waypoints - blue
+                    color = 'blue'
+                    marker = 'o'
+                    alpha = 0.4
+                
+                self.ax1.scatter(wp.x, wp.y, c=color, marker=marker, s=100, alpha=alpha, zorder=5)
+                
+                # Add waypoint number
+                self.ax1.text(wp.x, wp.y + 0.1, f'WP{i+1}', 
+                             ha='center', va='bottom', fontsize=8, weight='bold',
+                             bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8))
+            
+            # Draw path between waypoints
+            if len(waypoints) > 1:
+                wp_x = [wp.x for wp in waypoints]
+                wp_y = [wp.y for wp in waypoints]
+                self.ax1.plot(wp_x, wp_y, 'k--', alpha=0.3, linewidth=1, zorder=1)
+        
         # Draw robot position
         robot_x, robot_y, robot_theta = robot_pose
         
@@ -243,6 +305,22 @@ class SimpleVisualizer:
         self.ax1.text(robot_x, robot_y + 0.3, f'Pos: ({robot_x:.2f}, {robot_y:.2f})\nAngle: {angle_deg:.1f}°', 
                     ha='center', va='center', fontsize=6, 
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+        
+        # Add navigation status if in waypoint mode
+        if waypoint_navigator and movement_mode == MovementMode.WAYPOINT:
+            nav_status = waypoint_navigator.get_navigation_status()
+            mode_text = f"Mode: {movement_mode.value.upper()}"
+            status_text = f"{mode_text}\n{nav_status}"
+            self.ax1.text(0.02, 0.98, status_text, 
+                         transform=self.ax1.transAxes, fontsize=8, 
+                         verticalalignment='top',
+                         bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8))
+        elif movement_mode:
+            mode_text = f"Mode: {movement_mode.value.upper()}"
+            self.ax1.text(0.02, 0.98, mode_text, 
+                         transform=self.ax1.transAxes, fontsize=8, 
+                         verticalalignment='top',
+                         bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.8))
         
         # RGB LiDAR visualization subplot
         self.ax2.set_title('Live RGB LiDAR (3-Frame Buffer) + YOLO Detections')
@@ -373,7 +451,7 @@ class MotorController:
     def __init__(self, left_motor: Motor, right_motor: Motor):
         self.left_motor = left_motor
         self.right_motor = right_motor
-        self.max_speed = 6.0
+        self.max_speed = 6.67  # Set to absolute maximum TurtleBot3 speed
     
     def set_speeds(self, speed: float, rotation: float) -> None:
         """Set motor speeds with safety limits."""
@@ -408,13 +486,139 @@ class KeyboardHandler:
             314: 'right',        # Right arrow
             ord(' '): 'stop',    # Space
             ord('Q'): 'quit',    # Q
-            ord('q'): 'quit'
+            ord('q'): 'quit',
+            ord('M'): 'switch_mode',  # M - Switch movement mode
+            ord('m'): 'switch_mode',
+            ord('W'): 'start_waypoints',  # W - Start waypoint navigation
+            ord('w'): 'start_waypoints',
+            ord('S'): 'stop_waypoints',   # S - Stop waypoint navigation
+            ord('s'): 'stop_waypoints',
         }
     
     def get_command(self) -> Optional[str]:
         """Get command from keyboard input."""
         key = self.keyboard.getKey()
         return self.command_map.get(key) if key != -1 else None
+
+
+class WaypointNavigator:
+    """Handles waypoint navigation logic."""
+    
+    def __init__(self, waypoints: List[Waypoint] = None):
+        self.waypoints = waypoints or self._get_default_waypoints()
+        self.current_waypoint_index = 0
+        self.navigation_active = False
+        self.position_tolerance = 0.1
+        self.angle_tolerance = 0.1  # radians (~5.7 degrees)
+        self.max_speed = BASE_SPEED * 1.0  # Use full BASE_SPEED for maximum speed
+        self.turn_gain = 3.0  # High turn gain for fast direction changes
+    
+    def _get_default_waypoints(self) -> List[Waypoint]:
+        """Get default waypoints for demonstration."""
+        return [
+            Waypoint(1, 0, 0.1),
+            Waypoint(0, 1, 0.1),
+            Waypoint(-1.0, -1.0, 0.1),
+            # Waypoint(1.0, -1.0, 0.1),
+            Waypoint(0.0, 0.0, 0.1),  # Return to start
+        ]
+    
+    def set_waypoints(self, waypoints: List[Waypoint]) -> None:
+        """Set new waypoints and reset navigation."""
+        self.waypoints = waypoints
+        self.current_waypoint_index = 0
+        self.navigation_active = True
+        for wp in self.waypoints:
+            wp.reached = False
+    
+    def start_navigation(self) -> None:
+        """Start waypoint navigation."""
+        self.navigation_active = True
+        self.current_waypoint_index = 0
+        for wp in self.waypoints:
+            wp.reached = False
+        print(f"🚀 Starting waypoint navigation with {len(self.waypoints)} waypoints")
+    
+    def stop_navigation(self) -> None:
+        """Stop waypoint navigation."""
+        self.navigation_active = False
+        print("⏹️ Stopping waypoint navigation")
+    
+    def get_current_waypoint(self) -> Optional[Waypoint]:
+        """Get current waypoint."""
+        if not self.navigation_active or self.current_waypoint_index >= len(self.waypoints):
+            return None
+        return self.waypoints[self.current_waypoint_index]
+    
+    def is_navigation_complete(self) -> bool:
+        """Check if all waypoints have been reached."""
+        return self.current_waypoint_index >= len(self.waypoints)
+    
+    def calculate_movement(self, robot_pose: List[float]) -> Tuple[float, float]:
+        """Calculate speed and rotation to reach current waypoint."""
+        if not self.navigation_active:
+            return 0.0, 0.0
+        
+        current_waypoint = self.get_current_waypoint()
+        if not current_waypoint:
+            return 0.0, 0.0
+        
+        robot_x, robot_y, robot_theta = robot_pose
+        wp_x, wp_y = current_waypoint.x, current_waypoint.y
+        
+        # Calculate distance and angle to waypoint
+        dx = wp_x - robot_x
+        dy = wp_y - robot_y
+        distance = math.sqrt(dx*dx + dy*dy)
+        target_angle = math.atan2(dy, dx)
+        
+        # Check if waypoint reached
+        if distance <= current_waypoint.tolerance:
+            current_waypoint.reached = True
+            self.current_waypoint_index += 1
+            if self.is_navigation_complete():
+                print("✅ All waypoints reached!")
+                self.navigation_active = False
+                return 0.0, 0.0
+            else:
+                print(f"🎯 Reached waypoint {self.current_waypoint_index-1}, moving to next...")
+                return self.calculate_movement(robot_pose)  # Recursive call for next waypoint
+        
+        # Calculate angle difference
+        angle_diff = target_angle - robot_theta
+        
+        # Normalize angle difference to [-pi, pi]
+        while angle_diff > math.pi:
+            angle_diff -= 2 * math.pi
+        while angle_diff < -math.pi:
+            angle_diff += 2 * math.pi
+        
+        # Calculate speed and rotation
+        speed = min(self.max_speed, distance * 4.0)  # High multiplier for fast approach
+        speed = max(speed, self.max_speed * 0.6)  # Minimum 60% of max speed to avoid slowing down near waypoints
+        
+        # If angle difference is large, reduce speed and focus on turning
+        if abs(angle_diff) > self.angle_tolerance:
+            speed *= 0.8  # Minimal speed reduction for maximum speed turning
+            rotation = self.turn_gain * angle_diff
+        else:
+            rotation = self.turn_gain * angle_diff * 1.0  # Full responsiveness
+        
+        return speed, rotation
+    
+    def get_navigation_status(self) -> str:
+        """Get current navigation status string."""
+        if not self.navigation_active:
+            return "Navigation: Inactive"
+        
+        if self.is_navigation_complete():
+            return "Navigation: Complete"
+        
+        current_wp = self.get_current_waypoint()
+        if current_wp:
+            return f"Navigation: {self.current_waypoint_index + 1}/{len(self.waypoints)} - ({current_wp.x:.1f}, {current_wp.y:.1f})"
+        
+        return "Navigation: Unknown"
 
 
 class RobotController:
@@ -461,23 +665,30 @@ class RobotController:
         self.motor_controller = MotorController(self.left_motor, self.right_motor)
         self.keyboard_handler = KeyboardHandler(self.keyboard)
         self.visualizer = SimpleVisualizer()
+        self.waypoint_navigator = WaypointNavigator()
     
     def _print_instructions(self) -> None:
         """Print control instructions."""
         print("\n" + "="*50)
         print("KEYBOARD CONTROLS:")
         print("="*50)
+        print("MOVEMENT CONTROLS:")
         print("Up Arrow    - Move Forward")
         print("Down Arrow  - Move Backward")
         print("Left Arrow  - Turn Left")
         print("Right Arrow - Turn Right")
         print("Space       - Stop")
+        print("")
+        print("MODE CONTROLS:")
+        print("M           - Switch between Keyboard/Waypoint modes")
+        print("W           - Start waypoint navigation")
+        print("S           - Stop waypoint navigation")
         print("Q           - Quit")
         print("="*50)
-        print(f"Base Speed: {BASE_SPEED}")
-        print(f"Turn Gain: {TURN_GAIN}")
+        print(f"Waypoint Mode - Base Speed: {BASE_SPEED}, Turn Gain: {TURN_GAIN}")
+        print(f"Keyboard Mode - Base Speed: {KEYBOARD_SPEED}, Turn Gain: {KEYBOARD_TURN_GAIN}")
         print("LiDAR: ENABLED (same as full_train controller)")
-        print("Visualization: Robot position and heading")
+        print("Visualization: Robot position, waypoints, and YOLO detections")
         print("IMPORTANT: Click on Webots 3D window for focus!")
         print("="*50 + "\n")
     
@@ -486,6 +697,32 @@ class RobotController:
         if command == 'quit':
             self.state.is_running = False
             print("Quitting...")
+            return
+        
+        if command == 'switch_mode':
+            if self.state.movement_mode == MovementMode.KEYBOARD:
+                self.state.movement_mode = MovementMode.WAYPOINT
+                print("🔄 Switched to WAYPOINT mode")
+            else:
+                self.state.movement_mode = MovementMode.KEYBOARD
+                self.waypoint_navigator.stop_navigation()
+                print("🔄 Switched to KEYBOARD mode")
+            return
+        
+        if command == 'start_waypoints':
+            if self.state.movement_mode == MovementMode.WAYPOINT:
+                self.waypoint_navigator.start_navigation()
+            else:
+                print("⚠️ Switch to waypoint mode first (press M)")
+            return
+        
+        if command == 'stop_waypoints':
+            self.waypoint_navigator.stop_navigation()
+            return
+        
+        # Only handle movement commands in keyboard mode
+        if self.state.movement_mode != MovementMode.KEYBOARD:
+            print(f"⚠️ Movement commands only work in KEYBOARD mode (current: {self.state.movement_mode.value})")
             return
         
         if command == 'stop':
@@ -497,24 +734,41 @@ class RobotController:
         
         # Set movement parameters
         if command == 'forward':
-            self.state.current_speed = BASE_SPEED
+            self.state.current_speed = KEYBOARD_SPEED
             self.state.current_rotation = 0.0
             print("Moving forward")
         elif command == 'backward':
-            self.state.current_speed = -BASE_SPEED
+            self.state.current_speed = -KEYBOARD_SPEED
             self.state.current_rotation = 0.0
             print("Moving backward")
         elif command == 'left':
             self.state.current_speed = 0.0
-            self.state.current_rotation = -BASE_SPEED * 0.3  # Reduced from TURN_GAIN to 0.3
+            self.state.current_rotation = -KEYBOARD_SPEED * KEYBOARD_TURN_GAIN
             print("Turning left")
         elif command == 'right':
             self.state.current_speed = 0.0
-            self.state.current_rotation = BASE_SPEED * 0.3  # Reduced from TURN_GAIN to 0.3
+            self.state.current_rotation = KEYBOARD_SPEED * KEYBOARD_TURN_GAIN
             print("Turning right")
         
         # Apply movement
         self.motor_controller.set_speeds(self.state.current_speed, self.state.current_rotation)
+    
+    def _handle_waypoint_movement(self) -> None:
+        """Handle waypoint navigation movement."""
+        if self.state.movement_mode != MovementMode.WAYPOINT:
+            return
+        
+        if not self.waypoint_navigator.navigation_active:
+            self.motor_controller.stop()
+            return
+        
+        # Calculate movement from waypoint navigator
+        speed, rotation = self.waypoint_navigator.calculate_movement(self.state.pose)
+        
+        # Apply movement
+        self.state.current_speed = speed
+        self.state.current_rotation = rotation
+        self.motor_controller.set_speeds(speed, rotation)
     
     def _handle_movement_cycle(self) -> None:
         """Handle one movement cycle with brief movement and stop."""
@@ -522,14 +776,15 @@ class RobotController:
         for _ in range(5):
             self.robot.step(self.timestep)
         
-        # Stop after brief movement
-        self.state.current_speed = 0.0
-        self.state.current_rotation = 0.0
-        self.motor_controller.stop()
+        # Stop after brief movement (only in keyboard mode)
+        if self.state.movement_mode == MovementMode.KEYBOARD:
+            self.state.current_speed = 0.0
+            self.state.current_rotation = 0.0
+            self.motor_controller.stop()
     
     def run(self) -> None:
         """Main control loop."""
-        print("Starting keyboard-controlled robot...")
+        print("Starting robot controller with dual movement modes...")
         
         while self.robot.step(self.timestep) != -1 and self.state.is_running:
             # Update pose like full_train controller
@@ -539,18 +794,21 @@ class RobotController:
             scan = self.lidar_processor.get_scan_data()
             
             # Update visualization
-            self.visualizer.update(self.state.pose, scan, self.angles, title='Robot Position and LiDAR Scan')
+            self.visualizer.update(self.state.pose, scan, self.angles, self.waypoint_navigator, self.state.movement_mode, title='Robot Position and LiDAR Scan')
             
             # Get keyboard command
             command = self.keyboard_handler.get_command()
             
             if command:
                 self._execute_command(command)
-                if self.state.is_running:
+                if self.state.is_running and self.state.movement_mode == MovementMode.KEYBOARD:
                     self._handle_movement_cycle()
             
-            # Ensure motors are stopped when no command is active
-            if not command:
+            # Handle waypoint movement
+            self._handle_waypoint_movement()
+            
+            # Ensure motors are stopped when no command is active (keyboard mode only)
+            if self.state.movement_mode == MovementMode.KEYBOARD and not command:
                 self.motor_controller.set_speeds(0.0, 0.0)
 
 
