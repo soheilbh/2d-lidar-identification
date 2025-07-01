@@ -41,6 +41,20 @@ Our deep learning approach achieves state-of-the-art performance on 2D LiDAR obj
 - **Overall Recall**: 94.7%
 - **F1-Score**: 0.95
 
+<div align="center">
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/confusion_matrix.png" alt="Confusion Matrix" width="250"/>
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/R_curve.png" alt="Recall Curve" width="250"/>
+  <img src="training_outputs/120_DO_simple_Fused/detect/val/F1_curve.png" alt="F1 Curve" width="250"/>
+</div>
+
+<p align="center">
+  <sub>
+    <b>Left:</b> Confusion matrix for all classes on the test set. 
+    <b>Center:</b> Recall curve showing model sensitivity across thresholds. 
+    <b>Right:</b> F1 curve for overall detection performance.
+  </sub>
+</p>
+
 #### **Per-Class Performance:**
 
 | Class | Precision | Recall | mAP@0.5 | mAP@0.5:0.95 |
@@ -55,19 +69,6 @@ Our deep learning approach achieves state-of-the-art performance on 2D LiDAR obj
 - **MacBook Air M2**: 6.2ms per frame (~161 FPS)
 - **Raspberry Pi 3**: ~2 seconds per frame (TorchScript mode)
 
-<div align="center">
-  <img src="training_outputs/120_DO_simple_Fused/detect/val/confusion_matrix.png" alt="Confusion Matrix" width="250"/>
-  <img src="training_outputs/120_DO_simple_Fused/detect/val/R_curve.png" alt="Recall Curve" width="250"/>
-  <img src="training_outputs/120_DO_simple_Fused/detect/val/F1_curve.png" alt="F1 Curve" width="250"/>
-</div>
-
-<p align="center">
-  <sub>
-    <b>Left:</b> Confusion matrix for all classes on the test set. 
-    <b>Center:</b> Recall curve showing model sensitivity across thresholds. 
-    <b>Right:</b> F1 curve for overall detection performance.
-  </sub>
-</p>
 
 ### **Methodology: RGB Encoding of LiDAR Scans**
 
