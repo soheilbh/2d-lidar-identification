@@ -107,3 +107,23 @@ Our innovative approach encodes consecutive LiDAR scans as compact RGB images:
 ├── Presentation/                  # Project documentation and videos
 └── requirements.txt               # Python dependencies
 ```
+
+## 📊 Example Results
+
+**Confusion Matrix**
+
+Confusion matrix for all classes on the test set.
+
+![Confusion Matrix](training_outputs/120_DO_simple_Fused/detect/val/confusion_matrix.png)
+
+**Recall Curve**
+
+Recall curve showing model sensitivity across thresholds.
+
+![Recall Curve](training_outputs/120_DO_simple_Fused/detect/val/R_curve.png)
+
+**F1 Curve**
+
+F1 curve for overall detection performance.
+
+![F1 Curve](training_outputs/120_DO_simple_Fused/detect/val/F1_curve.png)
