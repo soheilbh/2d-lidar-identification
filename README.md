@@ -335,3 +335,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Note**: This project requires Webots simulation environment and proper Python dependencies. Ensure all paths are correctly configured for your system setup.
+
+## 📄 Further Reading
+
+This repository implements the deep learning (Method B) approach for 2D LiDAR-based object detection using RGB-encoded YOLO models.
+
+For a comparative study of both:
+- **Method A:** A classical geometry-based clustering and feature approach (not included in this codebase)
+- **Method B:** The deep learning approach implemented here
+
+please see the accompanying paper in [`resource/`](resource/) or [Final_2D-LiDAR-Identification-Mina_Soheil.pdf](resource/Final_2D-LiDAR-Identification-Mina_Soheil.pdf).
+Method A code and details are available at: [https://github.com/minaghaderi/2D-LiDAR-Based-Object-Recognition](https://github.com/minaghaderi/2D-LiDAR-Based-Object-Recognition)
