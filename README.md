@@ -173,6 +173,8 @@ The `scripts/Extra scripts/` folder contains additional utility scripts that may
 
 ## 🚀 Quick Start
 
+For detailed step-by-step instructions on running the full simulation and data generation pipeline, see [HOW_TO_RUN_SIMULATION.md](HOW_TO_RUN_SIMULATION.md).
+
 ### Prerequisites
 ```bash
 pip install -r requirements.txt
