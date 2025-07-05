@@ -4,6 +4,39 @@ This guide explains how to generate training data, run the simulation, process t
 
 ---
 
+## Pre-generated Data (Google Drive)
+
+For convenience, we provide pre-generated datasets that you can download directly:
+
+### **Google Drive Structure:**
+```
+📁 Google Drive Folder/
+├── 📁 raw_logs/
+│   └── yolo1d_scan_2025-06-06_01-11-05.jsonl.tar.gz
+├── 📁 Train_and_Test_Splited_Data_simpled_fused/
+│   ├── splits_simple_fused_2025-06-06_01-11-05_images_trains.tar.gz
+│   ├── splits_simple_fused_2025-06-06_01-11-05_lables_trains.tar.gz
+│   └── splits_simple_fused_2025-06-06_01-11-05_val_test.tar.gz
+├── 📁 Train_and_Test_Splited_Data_aligned_fused/
+│   └── ... (similar structure for aligned fused, if present)
+└── 📁 senarios/
+    └── 14400_scenarios_20250606_004922.jsonl
+```
+
+**Note:**  
+- The simple fused split data and raw logs are provided as compressed `.tar.gz` archives.  
+- Extract these files to obtain the `train`, `val`, and `test` folders for images and labels, or the raw log file for use in the pipeline.
+
+### **Download Link:**
+[Google Drive - 2D LiDAR Identification Data](https://drive.google.com/drive/folders/1stHaVEMeqq-YLNqXO39XQT179cmok1Rd?usp=sharing)
+
+### **Usage:**
+- **Skip steps 1-5**: Download the pre-split data and go directly to training
+- **Use your own data**: Follow the full pipeline from step 1
+- **Mix and match**: Use pre-generated scenarios but create your own splits
+
+---
+
 ## 1. Generate Scenario Definitions
 
 First, generate randomized scenarios (object and robot positions) for simulation.
@@ -56,6 +89,11 @@ The process is the same for both "simple fused" and "aligned fused" data; just u
 
 > **Note:**  
 > - Each image/label file is named as `frame_w_x_y_z.png` or `.txt`, where `w, x, y, z` are frame and scenario indices.
+> - **Pre-generated data available**: If you want to skip the data generation steps, you can download pre-generated datasets from our [Google Drive](https://drive.google.com/drive/folders/1stHaVEMeqq-YLNqXO39XQT179cmok1Rd?usp=sharing):
+>   - **`raw_logs`**: Raw LiDAR data logs from simulation
+>   - **`Train_and_Test_Splited_Data_simpled_fused`**: Pre-split training data for simple fused method
+>   - **`Train_and_Test_Splited_Data_aligned_fused`**: Pre-split training data for aligned fused method
+>   - **`senarios`**: Generated scenario definitions
 
 ---
 
